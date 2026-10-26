@@ -10,7 +10,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
 
     }
     
-    public override async Task<bool> TrySaveAsync()
+    public override async Task<bool> TrySaveAsync() 
     {
         
     }

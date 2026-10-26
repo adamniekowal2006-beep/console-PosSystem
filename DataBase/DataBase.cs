@@ -1,15 +1,15 @@
 namespace posConsole.DataBases;
-using posConsole.Types
+using posConsole.Types;
 
 abstract class DataBase<T> where T: IDataBaseItem<T>
 {
-    private List<T> _dataBaseList;
-    private HashSet<T> _dataBaseHS;
+    private List<T>? _dataBaseList;
+    private HashSet<T>? _dataBaseHS;
 
     public DataBase()
     {
-        _dataBaseHS = new HashSet<T>();
-        _dataBaseList = new List<T>();
+        _dataBaseHS = null;
+        _dataBaseList = null;
     }
 
     public abstract Task<bool> TrySave();
