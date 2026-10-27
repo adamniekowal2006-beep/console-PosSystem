@@ -1,10 +1,10 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace posConsole.StaticMetods;
+namespace posConsole.StaticMethods;
 
 
-static class JsonMetods
+static class JsonMethods
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
