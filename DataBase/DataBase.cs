@@ -6,15 +6,13 @@ abstract class DataBase<T> where T: IDataBaseItem<T>
     private List<T>? _dataBaseList;
     private HashSet<T>? _dataBaseHS;
 
-    public DataBase()
+    public DataBase(List<T> dbList)
     {
-        _dataBaseHS = null;
-        _dataBaseList = null;
+        _dataBaseList = dbList;
+        _dataBaseHS = new HashSet<T>(dbList);
     }
 
-    public abstract Task<bool> TrySave();
 
-    public abstract Task<bool> TryLoad(); 
 
 
 }

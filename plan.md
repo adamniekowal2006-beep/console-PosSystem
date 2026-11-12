@@ -13,7 +13,9 @@ Klasa apstrakcyjna jako szkielet do kazdego typu bazy danych,
 ##### Metody
 Uwaga! Funckcje nie moga zostac wykonane jezeli nie zostalo poprawnie zainicjowane
 
-- [] Konstruktor (ma przyjmowac liste i z tego robic list i hashset (jak jest null to to i to jest nullem))
+- [X] Konstruktor (ma przyjmowac liste i z tego robic list i hashset ())
+- [] TryGetAsync(out List<T> list)
+- [] TrySetAsync(List<T> list) -- Przemyslec czy te dwie funckje maja byc async
 - [] Add(T item)
 - [] Delete(T item)
 - [] IsAny(T item)
