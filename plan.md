@@ -11,16 +11,15 @@ Klasa apstrakcyjna jako szkielet do kazdego typu bazy danych,
 - [] HashSet jednowymiarowy typu T
 
 ##### Metody
-Uwaga! Funckcje nie moga zostac wykonane jezeli nie zostalo poprawnie zainicjowane
+
 
 - [X] Konstruktor (ma przyjmowac liste i z tego robic list i hashset ())
-- [] TryGetAsync(out List<T> list)
-- [] TrySetAsync(List<T> list) -- Przemyslec czy te dwie funckje maja byc async
-- [] Add(T item)
-- [] Delete(T item)
-- [] IsAny(T item)
-- [] Select(Func<T,bool>) // tu jeszcze moga byc zmiany
-- [] Search(Func<T,bool>) //tu jescze moga byc zmiany
+- [X] GetList(out List<T> list)
+- [X] SetList(List<T> list) 
+- [X] Add(T item)
+- [X] Delete(T item)
+- [X] IsAny(T item)
+- [X] Where(Func<T,bool>) //tu jescze moga byc zmiany
 ### DataBaseJson
 Klasa apstrakcyjna posiadajace metody zapisu i wczytywania oraz validacji wartosci przed zapisem. Jednoczenisenie zapisuje backup i 
 
@@ -29,10 +28,11 @@ Klasa apstrakcyjna posiadajace metody zapisu i wczytywania oraz validacji wartos
 - [] Ilosc wymaganych przechowan backupów
 
 #### Metody
-- [] Zapis bazy
-- [] Oddtworzenie bazy
-- [] Oddtworzenie bazy z backupu
-- [] Wylistowanie backapów
+Uwaga! Metody nie maja walidowac niczego poza tym co robia (metody sprawdzaja tylko czy czegos same nie spaprały), maja robic tylko co jest im powiedziane maja robic
+- [] Zapis bazy (Ma zapisać plik i stworzyc plik backup)
+- [] Oddtworzenie bazy (Przy braku pliku lub błedzie ma poinformowac co sie stało)
+- [] Oddtworzenie bazy z backupu (Przy braku pliku lub błedzie poinformuj urzytkownika)
+- [] Wylistowanie backapów (nie jest to metoda asynchroniczna)
 
 ### Types
 
