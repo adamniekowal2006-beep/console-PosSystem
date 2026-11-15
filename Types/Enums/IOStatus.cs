@@ -10,5 +10,6 @@ enum IOStatus
     IoError,
     InvalidJson,
     NullList,
-    InvalidSave
+    InvalidSave,
+    InvalidHash
 }
