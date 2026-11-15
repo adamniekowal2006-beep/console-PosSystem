@@ -14,30 +14,30 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         _path = path;
     }
     
-    public async Task<LoadStatus> TrySaveAsync()
+    public async Task<IOStatus> TrySaveAsync()
     {
         List<T> DatabaseList = new List<T>(GetList());
-        JsonMethodsResult JsonDataBaseCode = await JsonMethods.SerializationAsync(Path.Combine(_path,"savetemp.json"), DatabaseList);
-        if(JsonDataBaseCode != JsonMethodsResult.Success)
+        IOStatus JsonDataBaseCode = await JsonMethods.SerializationAsync(Path.Combine(_path,"savetemp.json"), DatabaseList);
+        if(JsonDataBaseCode != IOStatus.Success)
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
-            return JsonCodetoLoadStatus(JsonDataBaseCode);
+            return JsonDataBaseCode;
         }
 
         List<T> TempList;
-        JsonMethodsResult JsonTempCode;
+        IOStatus JsonTempCode;
         (TempList, JsonTempCode) = await JsonMethods.DeserializationAsync<T>(Path.Combine(_path,"savetemp.json"));
 
-        if(JsonTempCode != JsonMethodsResult.Success)
+        if(JsonTempCode != IOStatus.Success)
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
-            return JsonCodetoLoadStatus(JsonDataBaseCode);
+            return JsonTempCode;
         }
 
         if (!(TempList.Count() == DatabaseList.Count()))
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
-            return LoadStatus.InvalidSave;
+            return IOStatus.InvalidSave;
         }
         
         foreach(var item in TempList)
@@ -45,7 +45,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             if(!DatabaseList.Any(u => u.Equals(item)))
             {
                 File.Delete(Path.Combine(_path,"savetemp.json"));
-                return LoadStatus.InvalidSave;
+                return IOStatus.InvalidSave;
 
             }
         }
@@ -68,28 +68,28 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
-            return LoadStatus.AccessDenied;
+            return IOStatus.AccessDenied;
 
         }
         catch (FileNotFoundException)
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
-            return LoadStatus.FileNotFound;
+            return IOStatus.FileNotFound;
 
         }
         catch (DirectoryNotFoundException)
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
-            return LoadStatus.DirectoryNotFound;
+            return IOStatus.DirectoryNotFound;
 
         }
         catch (IOException)
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
-            return LoadStatus.IoError;
+            return IOStatus.IoError;
 
         }
 
@@ -97,14 +97,14 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine( "backups" , backupName));
-            return LoadStatus.InvalidSave;
+            return IOStatus.InvalidSave;
         }
 
         if (!HashSave.AsSpan().SequenceEqual(HashBackup))
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine( "backups" , backupName));
-            return LoadStatus.InvalidSave;
+            return IOStatus.InvalidSave;
         }
 
 
@@ -118,7 +118,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
             File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
-            return LoadStatus.AccessDenied;
+            return IOStatus.AccessDenied;
 
         }
         catch (FileNotFoundException)
@@ -126,7 +126,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
             File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
-            return LoadStatus.FileNotFound;
+            return IOStatus.FileNotFound;
 
         }
         catch (DirectoryNotFoundException)
@@ -134,7 +134,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
             File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
-            return LoadStatus.DirectoryNotFound;
+            return IOStatus.DirectoryNotFound;
 
         }
         catch (IOException)
@@ -142,7 +142,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             File.Delete(Path.Combine(_path,"savetemp.json"));
             File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
             File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
-            return LoadStatus.IoError;
+            return IOStatus.IoError;
         }
 
         File.Delete(Path.Combine(_path, "save.json"));
@@ -152,7 +152,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
 
 
 
-        return LoadStatus.success;
+        return IOStatus.Success;
     }
 
 
@@ -177,28 +177,10 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         return tempList;
     }
 
-    static public LoadStatus JsonCodetoLoadStatus(JsonMethodsResult code)
-    {
-        if(code == JsonMethodsResult.IoError) return LoadStatus.IoError;
-        else if(code == JsonMethodsResult.AccessDenied) return LoadStatus.AccessDenied;
-        else if(code == JsonMethodsResult.InvalidJson) return LoadStatus.InvalidJson;
-        else return LoadStatus.InvalidError;
-    }
 }
 
 
-public enum LoadStatus
-{
-    success = 0,
-    InvalidSave,
-    InvalidError,
-    IoError,
-    DirectoryNotFound,
-    FileNotFound,
-    AccessDenied,
-    InvalidJson
 
-}
 
 // TODO: wyjatki do obsluzenia w TrySaveAsync (liczenie hasha save.json i backupu)
 //

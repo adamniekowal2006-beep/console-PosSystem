@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using posConsole.Types;
 
 namespace posConsole.StaticMethods;
 
@@ -12,35 +13,35 @@ internal static class JsonMethods
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
     
-    public static async Task<JsonMethodsResult> SerializationAsync<T>(string path, List<T> list)
+    public static async Task<IOStatus> SerializationAsync<T>(string path, List<T> list)
     {
         try
         {
             await using FileStream stream = File.Create(path);
             await JsonSerializer.SerializeAsync(stream, list, JsonOptions);
-            return JsonMethodsResult.Success;
+            return IOStatus.Success;
         }
-        catch (DirectoryNotFoundException)  { return JsonMethodsResult.DirectoryNotFound; }
-        catch (UnauthorizedAccessException) { return JsonMethodsResult.AccessDenied; }
-        catch (IOException)                 { return JsonMethodsResult.IoError; }
-        catch (JsonException)               { return JsonMethodsResult.InvalidJson; }
+        catch (DirectoryNotFoundException)  { return IOStatus.DirectoryNotFound; }
+        catch (UnauthorizedAccessException) { return IOStatus.AccessDenied; }
+        catch (IOException)                 { return IOStatus.IoError; }
+        catch (JsonException)               { return IOStatus.InvalidJson; }
 
     }
 
-    public static async Task<(List<T> list, JsonMethodsResult result)> DeserializationAsync<T>(string path)
+    public static async Task<(List<T> list, IOStatus result)> DeserializationAsync<T>(string path)
     {
         try
         {
             await using FileStream stream = File.OpenRead(path);
             List <T>? templist = await JsonSerializer.DeserializeAsync<List<T>>(stream, JsonOptions);
-            if(templist == null)              return (new List<T>(), JsonMethodsResult.NullList);
-            return(templist, JsonMethodsResult.Success);
+            if(templist == null)              return (new List<T>(), IOStatus.NullList);
+            return(templist, IOStatus.Success);
         }
-        catch (FileNotFoundException)       { return (new List<T>(), JsonMethodsResult.FileNotFound); }
-        catch (DirectoryNotFoundException)  { return (new List<T>(), JsonMethodsResult.DirectoryNotFound); }
-        catch (UnauthorizedAccessException) { return (new List<T>(), JsonMethodsResult.AccessDenied); }
-        catch (IOException)                 { return (new List<T>(), JsonMethodsResult.IoError); }
-        catch (JsonException)               { return (new List<T>(), JsonMethodsResult.InvalidJson); }
+        catch (FileNotFoundException)       { return (new List<T>(), IOStatus.FileNotFound); }
+        catch (DirectoryNotFoundException)  { return (new List<T>(), IOStatus.DirectoryNotFound); }
+        catch (UnauthorizedAccessException) { return (new List<T>(), IOStatus.AccessDenied); }
+        catch (IOException)                 { return (new List<T>(), IOStatus.IoError); }
+        catch (JsonException)               { return (new List<T>(), IOStatus.InvalidJson); }
         
     }
 }
