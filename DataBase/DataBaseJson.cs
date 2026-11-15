@@ -34,6 +34,12 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             return JsonCodetoLoadStatus(JsonDataBaseCode);
         }
 
+        if (!(TempList.Count() == DatabaseList.Count()))
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            return LoadStatus.InvalidSave;
+        }
+        
         foreach(var item in TempList)
         {
             if(!DatabaseList.Any(u => u.Equals(item)))
@@ -44,8 +50,49 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             }
         }
 
-        string backupName = $"backup_{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.json";
-        File.Copy(Path.Combine(_path, "save.json"), Path.Combine(_path, Path.Combine( "backups" , backupName)));
+        string time = $"{DateTime.Now:yyyy-MM-dd-HH-mm-ss}";
+        string backupName = $"backup_{time}.json";
+        string backupHashName = $"backupHash_{time}.hash";
+        Byte[] HashSave;
+        Byte[] HashBackup;
+
+        try
+        {
+            File.Copy(Path.Combine(_path, "save.json"), Path.Combine(_path, Path.Combine( "backups" , backupName))); //Tuataj wstawic try/catch do File.Copy
+            await using FileStream streamSave = File.OpenRead(Path.Combine(_path, "save.json"));
+            await using FileStream streamBackup = File.OpenRead(Path.Combine( "backups" , backupName));
+            HashSave =  await SHA256.HashDataAsync(streamSave);
+            HashBackup = await SHA256.HashDataAsync(streamBackup);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            return LoadStatus.AccessDenied;
+
+        }
+        catch (FileNotFoundException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            return LoadStatus.FileNotFound;
+
+        }
+        catch (DirectoryNotFoundException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            return LoadStatus.DirectoryNotFound;
+
+        }
+        catch (IOException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            return LoadStatus.IoError;
+
+        }
+
         if(!File.Exists(Path.Combine(_path, Path.Combine( "backups" , backupName))))
         {
             File.Delete(Path.Combine(_path,"savetemp.json"));
@@ -53,14 +100,55 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             return LoadStatus.InvalidSave;
         }
 
-        try{
-            await using FileStream streamSave = File.OpenRead(Path.Combine(_path, "save.json"));
-            await using FileStream streamBackup = File.OpenRead(Path.Combine( "backups" , backupName));
-            Byte[] HashSave =  await SHA256.HashDataAsync(streamSave);
-            Byte[] HashBackup = await SHA256.HashDataAsync(streamBackup);
-            
+        if (!HashSave.AsSpan().SequenceEqual(HashBackup))
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine( "backups" , backupName));
+            return LoadStatus.InvalidSave;
         }
-        catch (IOException) {return LoadStatus.IoError;}
+
+
+        try
+        {
+            await using FileStream streamBackup = File.Create(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
+            streamBackup.Write(HashBackup);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
+            return LoadStatus.AccessDenied;
+
+        }
+        catch (FileNotFoundException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
+            return LoadStatus.FileNotFound;
+
+        }
+        catch (DirectoryNotFoundException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
+            return LoadStatus.DirectoryNotFound;
+
+        }
+        catch (IOException)
+        {
+            File.Delete(Path.Combine(_path,"savetemp.json"));
+            File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
+            File.Delete(Path.Combine(_path,Path.Combine( "backup" , backupHashName)));
+            return LoadStatus.IoError;
+        }
+
+        File.Delete(Path.Combine(_path, "save.json"));
+
+
+
 
 
 
@@ -105,6 +193,8 @@ public enum LoadStatus
     InvalidSave,
     InvalidError,
     IoError,
+    DirectoryNotFound,
+    FileNotFound,
     AccessDenied,
     InvalidJson
 
