@@ -51,102 +51,26 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             }
         }
 
-        string time = $"{DateTime.Now:yyyy-MM-dd-HH-mm-ss}";
+        string time = $"{DateTime.Now:yyyy-MM-dd-HH-mm}";
         string backupName = $"backup_{time}.json";
         string backupHashName = $"backupHash_{time}.hash";
-        
-        IOStatus CopyBackupStatus =  await IOMethods.TryCopyFile(Path.Combine(_path, "save.json"), Path.Combine(_path, Path.Combine( "backups" , backupName)));
 
-        if (CopyBackupStatus != IOStatus.Success || !File.Exists(Path.Combine(_path, Path.Combine( "backups" , backupName))))
+        IOStatus CopyBackupStatus = await CopySave(Path.Combine(_path, "save.json"), Path.Combine(_path, Path.Combine( "backups" , backupName)), Path.Combine(_path, Path.Combine( "backups" , backupHashName)));
+        if (CopyBackupStatus != IOStatus.Success)
         {
-            ClearSaveChanges(true, backupName: backupName);
-            if(CopyBackupStatus == IOStatus.Success) return IOStatus.FileNotFound;
+            //Wywolanie czyszczenia 
             return CopyBackupStatus;
         }
-
-        byte[]? HashSave;
-        byte[]? HashBackup;
-        IOStatus HashOldStatus;
-        IOStatus HashBackupStatus;
-
-        (HashSave, HashOldStatus) = await IOMethods.TryCalculateSHA256(Path.Combine(_path, "save.json"));
-        (HashBackup, HashBackupStatus) = await IOMethods.TryCalculateSHA256(Path.Combine(_path, Path.Combine( "backups" , backupName)));
-
-        if(HashOldStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName);
-            return HashOldStatus;
-        }
-
-        if(HashBackupStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName);
-            return HashBackupStatus;
-        }
-
-        if(HashSave == null || HashBackup == null || !IOMethods.HashCalculate(HashSave, HashBackup))
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName);
-            return IOStatus.InvalidHash;
-        }
-
-        HashBackupStatus = await IOMethods.TrySaveHash(Path.Combine(_path, Path.Combine( "backups" , backupHashName)), HashBackup);
-
-        if(HashBackupStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName);
-            return HashBackupStatus;
-        }
-        
 
         File.Move(Path.Combine(_path, "save.json"),Path.Combine(_path, "saveold.json"));
         File.Move(Path.Combine(_path, "save.hash"),Path.Combine(_path, "saveold.hash"));
 
-
-        IOStatus CopyNowStatus = await IOMethods.TryCopyFile(Path.Combine(_path,"savetemp.json"), Path.Combine(_path, "save.json"));
-        if (CopyNowStatus != IOStatus.Success || !File.Exists( Path.Combine(_path, "save.json")))
+        IOStatus CopyNowSaveStatus = await CopySave(Path.Combine(_path,"savetemp.json"),Path.Combine(_path, "save.json"),Path.Combine(_path, "save.hash"));
+        if (CopyNowSaveStatus != IOStatus.Success)
         {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName, NowSave: true);
-            RestoreSaves();
-            if(CopyNowStatus == IOStatus.Success) return IOStatus.FileNotFound;
-            return CopyNowStatus;
-        }
-
-        byte[]? HashTemp;
-        byte[]? HashNow;
-        IOStatus HashTempStatus;
-        IOStatus HashNowStatus;
-
-        (HashTemp, HashTempStatus) = await IOMethods.TryCalculateSHA256(Path.Combine(_path,"savetemp.json"));
-        (HashNow, HashNowStatus) = await IOMethods.TryCalculateSHA256(Path.Combine(_path, "save.json"));
-
-        if(HashTempStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName, NowSave: true);
-            RestoreSaves();
-            return HashTempStatus;
-        }
-
-        if(HashNowStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName, NowSave: true);
-            RestoreSaves();
-            return HashNowStatus;
-        }
-
-        if(HashTemp == null || HashNow == null || !IOMethods.HashCalculate(HashTemp, HashNow))
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName, NowSave: true);
-            RestoreSaves();
-            return IOStatus.InvalidHash;
-        }
-
-        HashNowStatus = await IOMethods.TrySaveHash(Path.Combine(_path, "save.hash"), HashNow);
-        if(HashNowStatus != IOStatus.Success)
-        {
-            ClearSaveChanges(true, backupName: backupName, hsBackupName: backupHashName, NowSave: true, NowHashSave: true);
-            RestoreSaves();
-            return HashNowStatus;
+            //Wywolanie czysczczenia
+            //Odzyskanien Save-u
+            return CopyNowSaveStatus;
         }
 
         File.Delete(Path.Combine(_path, "saveold.json"));
@@ -169,6 +93,42 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         File.Move(Path.Combine(_path, "saveold.json"),Path.Combine(_path, "save.json"));
         File.Move(Path.Combine(_path, "saveold.hash"),Path.Combine(_path, "save.hash"));
 
+    }
+
+    public async Task<IOStatus> CopySave(string pathFrom, string pathTo, string? pathHash = null)
+    {
+        IOStatus CopyStatus = await IOMethods.TryCopyFile(pathFrom, pathTo);
+        if (CopyStatus != IOStatus.Success || !File.Exists(pathTo))
+        {
+            if(CopyStatus == IOStatus.Success) return IOStatus.FileNotFound;
+            return CopyStatus;
+        }
+
+        byte[]? HashFrom;
+        byte[]? HashTo;
+        IOStatus HashFromStatus;
+        IOStatus HashToStatus;
+
+        (HashFrom, HashFromStatus) = await IOMethods.TryCalculateSHA256(pathTo);
+        (HashTo, HashToStatus) = await IOMethods.TryCalculateSHA256(pathFrom);
+
+        if(HashFromStatus!=IOStatus.Success) return HashFromStatus;
+        if(HashToStatus!=IOStatus.Success) return HashToStatus;
+        if(HashFrom == null || HashTo == null || !IOMethods.HashCalculate(HashFrom, HashTo))
+        {
+            return IOStatus.InvalidSave;
+        }
+
+        if (pathHash != null)
+        {
+            IOStatus HashSaveStatus = await IOMethods.TrySaveHash(pathHash, HashTo);
+            if( HashSaveStatus != IOStatus.Success)
+            {
+                return HashSaveStatus;
+            }
+        }
+
+        return IOStatus.Success;
     }
 
 
