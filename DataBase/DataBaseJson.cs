@@ -4,7 +4,6 @@ namespace posConsole.DataBases;
 using posConsole.StaticMethods;
 using posConsole.Types;
 using System.IO;
-using System.Security.Cryptography;
 
 abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
 {
@@ -14,14 +13,16 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         _path = path;
     }
     
-    public async Task<IOStatus> TrySaveAsync()
+    public async Task<(IOStatus SaveStatus,IOStatus ClearStatus)> TrySaveAsync()
     {
+        string time = $"{DateTime.Now:yyyy-MM-dd-HH-mm-ss}";
+        IOStatus clearCode = IOStatus.NotInit;
         List<T> DatabaseList = new List<T>(GetList());
         IOStatus JsonDataBaseCode = await JsonMethods.SerializationAsync(Path.Combine(_path,"savetemp.json"), DatabaseList);
         if(JsonDataBaseCode != IOStatus.Success)
         {
-            ClearSaveChanges(temporarySave: true);
-            return JsonDataBaseCode;
+            clearCode = await ClearSaveChanges(time);
+            return (JsonDataBaseCode,clearCode);
         }
 
         List<T> TempList;
@@ -31,69 +32,93 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
         
         if(JsonTempCode != IOStatus.Success)
         {
-            ClearSaveChanges(temporarySave: true);
-            return JsonTempCode;
+            clearCode = await ClearSaveChanges(time);
+            return (JsonTempCode,clearCode);
         }
 
         if (!(TempList.Count() == DatabaseList.Count()))
         {
-            ClearSaveChanges(temporarySave: true);
-            return IOStatus.InvalidSave;
+            clearCode = await ClearSaveChanges(time);
+            return (IOStatus.InvalidSave,clearCode);
         }
         
         foreach(var item in TempList)
         {
             if(!DatabaseList.Any(u => u.Equals(item)))
             {
-                ClearSaveChanges(temporarySave: true);
-                return IOStatus.InvalidSave;
+                clearCode = await ClearSaveChanges(time);
+                return (IOStatus.InvalidSave,clearCode);
 
             }
         }
 
-        string time = $"{DateTime.Now:yyyy-MM-dd-HH-mm}";
+        
         string backupName = $"backup_{time}.json";
-        string backupHashName = $"backupHash_{time}.hash";
+        string backupHashName = $"backup_{time}.hash";
 
         IOStatus CopyBackupStatus = await CopySave(Path.Combine(_path, "save.json"), Path.Combine(_path, Path.Combine( "backups" , backupName)), Path.Combine(_path, Path.Combine( "backups" , backupHashName)));
         if (CopyBackupStatus != IOStatus.Success)
         {
-            //Wywolanie czyszczenia 
-            return CopyBackupStatus;
+            clearCode = await ClearSaveChanges(time); 
+            return (CopyBackupStatus,clearCode);
         }
 
-        File.Move(Path.Combine(_path, "save.json"),Path.Combine(_path, "saveold.json"));
-        File.Move(Path.Combine(_path, "save.hash"),Path.Combine(_path, "saveold.hash"));
+        IOStatus DeleteSaveStatus = IOMethods.TryDelete(Path.Combine(_path,"save.json"));
+        IOStatus DeleteHashStatus = IOMethods.TryDelete(Path.Combine(_path,"save.hash"));
+
+        if(DeleteSaveStatus != IOStatus.Success) 
+        {
+            clearCode = await ClearSaveChanges(time); 
+            return (DeleteSaveStatus, clearCode);
+        }
+        if(DeleteHashStatus != IOStatus.Success) 
+        {
+            clearCode = await ClearSaveChanges(time, RestoreSaves: true); 
+            return (DeleteHashStatus, clearCode);
+        }
+
 
         IOStatus CopyNowSaveStatus = await CopySave(Path.Combine(_path,"savetemp.json"),Path.Combine(_path, "save.json"),Path.Combine(_path, "save.hash"));
         if (CopyNowSaveStatus != IOStatus.Success)
         {
-            //Wywolanie czysczczenia
-            //Odzyskanien Save-u
-            return CopyNowSaveStatus;
+            clearCode = await ClearSaveChanges(time, RestoreSaves: true);
+            return (CopyNowSaveStatus,clearCode);
         }
 
-        File.Delete(Path.Combine(_path, "saveold.json"));
-        File.Delete(Path.Combine(_path, "saveold.hash"));
+        clearCode = IOMethods.TryDelete(Path.Combine(_path,"savetemp.json"));
+        
+        return (IOStatus.Success,clearCode);
+    }
 
+    public async Task<IOStatus> ClearSaveChanges(string time, bool RestoreSaves = false)
+    {
+        IOStatus RestoreCopyStatus = IOStatus.NotInit; 
+        try
+        {
+            if (RestoreSaves)
+            {
+                File.Delete(Path.Combine(_path, "save.json"));
+                File.Delete(Path.Combine(_path, "save.hash"));
+                RestoreCopyStatus = await CopySave(Path.Combine(_path,Path.Combine( "backups" , $"backup_{time}.json")),Path.Combine(_path, "save.json"), Path.Combine(_path, "save.hash"));
+
+            }
+            else RestoreCopyStatus = IOStatus.Success;
+            if (RestoreCopyStatus == IOStatus.Success){
+                File.Delete(Path.Combine(_path, "savetemp.json"));
+                File.Delete(Path.Combine(_path, Path.Combine( "backups" , $"backup_{time}.json")));
+                File.Delete(Path.Combine(_path, Path.Combine( "backups" , $"backup_{time}.hash")));
+            }
+
+
+
+        }
+        catch(UnauthorizedAccessException) {return IOStatus.AccessDenied; }
+        catch(DirectoryNotFoundException){ return IOStatus.DirectoryNotFound; }
+        catch(IOException) {return IOStatus.IoError; }
+
+        if(RestoreCopyStatus != IOStatus.Success) return RestoreCopyStatus;
         return IOStatus.Success;
-    }
-
-    public void ClearSaveChanges(bool temporarySave, string? backupName = null, string? hsBackupName = null, bool NowSave = false, bool NowHashSave = false)
-    {
-        if(temporarySave) File.Delete(Path.Combine(_path,"savetemp.json"));
-        if(backupName!=null) File.Delete(Path.Combine(_path,Path.Combine( "backups" , backupName)));
-        if(hsBackupName!=null) File.Delete(Path.Combine(_path,Path.Combine( "backups" , hsBackupName)));
-        if(NowSave) File.Delete(Path.Combine(_path, "save.json"));
-        if(NowHashSave) File.Delete(Path.Combine(_path, "save.hash"));
-    }
-    
-    public void RestoreSaves()
-    {
-        File.Move(Path.Combine(_path, "saveold.json"),Path.Combine(_path, "save.json"));
-        File.Move(Path.Combine(_path, "saveold.hash"),Path.Combine(_path, "save.hash"));
-
-    }
+    }    
 
     public async Task<IOStatus> CopySave(string pathFrom, string pathTo, string? pathHash = null)
     {
@@ -126,6 +151,7 @@ abstract class DataBaseJson<T>: DataBase<T> where T: IDataBaseItem<T>
             {
                 return HashSaveStatus;
             }
+            if(!File.Exists(pathHash)) return IOStatus.InvalidHash;
         }
 
         return IOStatus.Success;

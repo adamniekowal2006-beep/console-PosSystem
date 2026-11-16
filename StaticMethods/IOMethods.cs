@@ -103,4 +103,12 @@ static class IOMethods
         }
         return IOStatus.Success;
     }
+    public static IOStatus TryDelete(string file)
+    {
+        try {File.Delete(file);}
+        catch(UnauthorizedAccessException)     {return IOStatus.AccessDenied; }
+        catch(DirectoryNotFoundException)       {return IOStatus.DirectoryNotFound; }
+        catch(IOException)                      {return IOStatus.IoError; }
+        return IOStatus.Success;
+    }
 }

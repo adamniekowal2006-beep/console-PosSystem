@@ -3,6 +3,7 @@ namespace posConsole.Types;
 
 enum IOStatus
 {
+    NotInit = -1,
     Success = 0,
     FileNotFound,
     DirectoryNotFound,
@@ -11,5 +12,5 @@ enum IOStatus
     InvalidJson,
     NullList,
     InvalidSave,
-    InvalidHash
+    InvalidHash,
 }
